@@ -1,0 +1,15 @@
+{
+    "require": {
+        "nixsolutions/yandex-php-library": "^0.4.1",
+        "symfony/property-access": "^2.7"
+    },
+
+    "autoload": {
+        "psr-0": {
+            "RuSPanzer": "src/"
+        }
+    },
+    "require-dev": {
+        "symfony/var-dumper": "^2.7"
+    }
+}
