@@ -6,12 +6,11 @@
  * Time: 18:14
  */
 
-namespace RuSPanzer;
+namespace RuSPanzer\Backuper;
 
-use RuSPanzer\Dumper\Config;
 use Yandex\Disk\DiskClient;
 
-class Dumper
+class Backuper
 {
 
     private $config;
@@ -26,7 +25,7 @@ class Dumper
     /**
      * @return string
      */
-    public function getToken()
+    public function getYaDiskToken()
     {
         return $this->config->getYaDiskToken();
     }
@@ -37,21 +36,30 @@ class Dumper
     public function getDiskClient()
     {
         if (!$this->client) {
-            $this->client = new DiskClient($this->getToken());
+            $this->client = new DiskClient($this->getYaDiskToken());
         }
 
         return $this->client;
     }
 
     /**
+     * @return Backup[]
+     */
+    public function getBackups()
+    {
+        return $this->config->getBackups();
+    }
+
+    /**
      *
      */
-    public function dump()
+    public function createBackup()
     {
-        $client = $this->getDiskClient();
-        
-        dump($client);
-        die;
+        foreach ($this->getBackups() as $backup) {
+            $archive = $backup->backup();
+
+            //todo save backups and import to yadisk
+        }
     }
 
 }

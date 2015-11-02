@@ -6,7 +6,6 @@
  * Time: 18:14
  */
 
-
 require_once __DIR__ . '/vendor/autoload.php';
 
 $config = [
@@ -14,21 +13,28 @@ $config = [
         'token' => '13b8174a029e406e8ffdb2f12322eb89',
     ],
     'backups' => [
-        [
+        'some-site' => [
+            'previous-backups-count' => 3,
             'files' => [
-                'dir' => '.'
+                'dir' => '../somedir',
+                'file' => './somelog.txt'
+            ],
+            'excluded-dirs' => [
+                '../somedir/vendor',
             ],
             'databases' => [
-
+                'some-database' => [
+                    'host' => 'localhost',
+                    'dbname' => 'test',
+                    'user' => 'test',
+                    'pass' => 'test',
+                ]
             ],
-            'params' => [
-                'save-count' => 3,
-            ]
         ]
     ]
 ];
 
 
-$dumper = new \RuSPanzer\Dumper($config);
+$dumper = new \RuSPanzer\Backuper\Backuper($config);
 
-$dumper->dump();
+$dumper->createBackup();

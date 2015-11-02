@@ -1,13 +1,11 @@
 {
     "require": {
         "nixsolutions/yandex-php-library": "^0.4.1",
-        "symfony/property-access": "^2.7"
+        "ifsnop/mysqldump-php": "2.*"
     },
 
     "autoload": {
-        "psr-0": {
-            "RuSPanzer": "src/"
-        }
+        "psr-4": {"RuSPanzer\\": "src/RuSPanzer/"}
     },
     "require-dev": {
         "symfony/var-dumper": "^2.7"
