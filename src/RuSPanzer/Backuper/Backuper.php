@@ -8,6 +8,7 @@
 
 namespace RuSPanzer\Backuper;
 
+use RuSPanzer\Backuper\Exception\ExtensionNotFoundException;
 use Yandex\Disk\DiskClient;
 use Yandex\Disk\Exception\DiskRequestException;
 use Yandex\OAuth\OAuthClient;
@@ -26,10 +27,21 @@ class Backuper
 
     public function __construct(array $config)
     {
+        $neededExtensions = [
+            'zip',
+            'curl',
+        ];
+
+        foreach ($neededExtensions as $extension) {
+            if (!extension_loaded($extension)) {
+                throw new ExtensionNotFoundException($extension);
+            }
+        }
+
         $this->config = new Config($config);
     }
 
-    /**\
+    /**
      * @return DiskClient
      */
     public function getDiskClient()
