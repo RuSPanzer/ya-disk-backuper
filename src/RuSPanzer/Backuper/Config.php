@@ -18,7 +18,7 @@ class Config
      */
     private $config = [];
 
-    private $backupsConfig = [];
+    private $backups = [];
 
     private $tmpDir;
 
@@ -31,7 +31,7 @@ class Config
         }
 
         foreach ($config['backups'] as $name => $backupConfig) {
-            $this->backupsConfig[] = new Backup($name, $backupConfig, $this);
+            $this->backups[] = new Backup($name, $backupConfig, $this);
         }
 
         $tmpDir = isset($config['tmp-dir'])
@@ -42,24 +42,11 @@ class Config
     }
 
     /**
-     * @return string
-     * @throws ConfigurationException
-     */
-    public function getYaDiskToken()
-    {
-        if (empty($this->config['ya-disk']['token'])) {
-            throw new ConfigurationException("Yandex disk token not found");
-        }
-
-        return $this->config['ya-disk']['token'];
-    }
-
-    /**
      * @return Backup[]
      */
     public function getBackups()
     {
-        return $this->backupsConfig;
+        return $this->backups;
     }
 
     /**
@@ -74,5 +61,30 @@ class Config
         }
 
         return $this->tmpDir;
+    }
+
+    /**
+     * @param $param
+     *
+     * @return array
+     * @throws ConfigurationException
+     */
+    public function getYaDiskParam($param)
+    {
+        if (empty($this->config['ya-disk'][$param])) {
+            throw new ConfigurationException(sprintf("Yandex disk param %s not found", $param));
+        }
+
+        return $this->config['ya-disk'][$param];
+    }
+
+
+    /**
+     * @return string
+     * @throws ConfigurationException
+     */
+    public function getYaDiskToken()
+    {
+        return $this->getYaDiskParam('token');
     }
 }

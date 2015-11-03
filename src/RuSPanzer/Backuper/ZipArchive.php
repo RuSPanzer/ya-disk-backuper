@@ -12,6 +12,11 @@ class ZipArchive extends \ZipArchive
 {
 
     /**
+     * @var
+     */
+    private $fileName;
+
+    /**
      * @param $dirName
      * @param string $localName
      * @param array $excludedDirs
@@ -50,5 +55,25 @@ class ZipArchive extends \ZipArchive
             }
         }
         closedir($dir);
+    }
+
+    /**
+     * @param string $filename
+     * @param null   $flags
+     *
+     * @return mixed
+     */
+    public function open($filename, $flags = null)
+    {
+        $this->fileName = $filename;
+        return parent::open($filename, $flags);
+    }
+
+    /**
+     * @return string
+     */
+    public function getFileName()
+    {
+        return $this->fileName;
     }
 }

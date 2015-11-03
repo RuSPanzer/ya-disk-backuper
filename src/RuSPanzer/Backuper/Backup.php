@@ -31,6 +31,8 @@ class Backup
 
     private $dbFiles = [];
 
+    private $archive;
+
     public function __construct($name, array $backupConfig, Config $config)
     {
         $this->name = $name;
@@ -72,7 +74,7 @@ class Backup
         $path = realpath($path);
 
         if (!is_dir($path) || !is_readable($path)) {
-            throw new ConfigurationException(sprintf("Directory '%s' not exist or no readable"), $path);
+            throw new ConfigurationException(sprintf("Directory '%s' not exist or no readable", $path));
         }
 
         $this->directories[sha1($path)] = $path;
@@ -192,7 +194,9 @@ class Backup
             unlink($file);
         }
 
-        return $archive;
+        $this->archive = $archive;
+
+        return $this;
     }
 
     /**
@@ -229,6 +233,27 @@ class Backup
             $archive->addFile($fileName, 'dbs/' . basename($fileName));
             $this->dbFiles[] = $fileName;
         }
+    }
+
+    /**
+     * @return ZipArchive
+     * @throws BackupException
+     */
+    public function getArchive()
+    {
+        if ($this->archive === null) {
+            throw new BackupException("Use Backup::backup() before getting archive file");
+        }
+
+        return $this->archive;
+    }
+
+    /**
+     * @return int
+     */
+    public function getPreviousBackupsCount()
+    {
+        return $this->previousBackupsCount;
     }
 
 }
