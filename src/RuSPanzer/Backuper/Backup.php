@@ -8,131 +8,44 @@
 
 namespace RuSPanzer\Backuper;
 
-
-use Ifsnop\Mysqldump\Mysqldump;
+use RuSPanzer\Backuper\Config as Config;
 use RuSPanzer\Backuper\Exception\BackupException;
-use RuSPanzer\Backuper\Exception\ConfigurationException;
+use Symfony\Component\OptionsResolver\OptionsResolver;
 
 class Backup
 {
-    private $files = [];
-
-    private $directories= [];
-
-    private $databases = [];
-
     private $name;
-
-    private $previousBackupsCount = 5;
-
-    private $globalConfig;
-
-    private $excludedDirs = [];
 
     private $dbFiles = [];
 
     private $archive;
 
-    public function __construct($name, array $backupConfig, Config $config)
+    private $backuper;
+
+    private $config;
+
+    public function __construct($name, array $backupConfig, Backuper $backuper)
     {
         $this->name = $name;
-        $this->globalConfig = $config;
 
-        if (isset($backupConfig['previous-backups-count'])) {
-            $this->previousBackupsCount = $backupConfig['previous-backups-count'];
-        }
+        $this->backuper = $backuper;
 
-        if (isset($backupConfig['excluded-dirs'])) {
-            foreach ($backupConfig['excluded-dirs'] as $dir) {
-                $this->excludedDirs[] = realpath($dir);
-            };
-        }
+        $optionsResolver = new OptionsResolver();
+        $optionsResolver
+            ->setDefaults([
+                'previous-backups-count' => 3,
+                'filesystem' => [],
+                'databases' => [],
+            ])
+            ->setAllowedTypes('previous-backups-count', 'integer')
+            ->setAllowedTypes('filesystem', 'array')
+            ->setAllowedTypes('databases', 'array')
+        ;
 
-        if (isset($backupConfig['files']) && is_array($backupConfig['files'])) {
-            foreach ($backupConfig['files'] as $key => $path) {
-                if ($key === 'file') {
-                    $this->addFile($path);
-                } elseif ($key === 'dir') {
-                    $this->addDirectory($path);
-                }
-            }
-        }
+        $this->config = $optionsResolver->resolve($backupConfig);
 
-        if (isset($backupConfig['databases']) && is_array($backupConfig['databases'])) {
-            foreach ($backupConfig['databases'] as $name => $dbConfig) {
-                $this->addDatabase($name, $dbConfig);
-            }
-        }
-    }
-
-    /**
-     * @param $path
-     * @throws ConfigurationException
-     */
-    public function addDirectory($path)
-    {
-        $path = realpath($path);
-
-        if (!is_dir($path) || !is_readable($path)) {
-            throw new ConfigurationException(sprintf("Directory '%s' not exist or no readable", $path));
-        }
-
-        $this->directories[sha1($path)] = $path;
-    }
-
-    /**
-     * @param $path
-     * @throws ConfigurationException
-     */
-    public function addFile($path)
-    {
-        $path = realpath($path);
-
-        if (!file_exists($path) || !is_readable($path)) {
-            throw new ConfigurationException(sprintf("File '%s' not exist or no readable"), $path);
-        }
-
-        $this->files[sha1($path)] = $path;
-    }
-
-    /**
-     * @param $name
-     * @param $config
-     */
-    public function addDatabase($name, $config)
-    {
-        $host = isset($config['host']) ? $config['host'] : null;
-        $dbName = isset($config['dbname']) ? $config['dbname'] : null;
-        $username = isset($config['user']) ? $config['user'] : null;
-        $password = isset($config['pass']) ? $config['pass'] : null;
-
-        $this->databases[$name] = new Mysqldump("mysql:host={$host};dbname={$dbName}", $username, $password, [
-            'compress' => Mysqldump::GZIP,
-        ]);
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getFiles()
-    {
-        return $this->files;
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getDirectories()
-    {
-        return $this->directories;
-    }
-
-    /**
-     * @return Mysqldump[]
-     */
-    public function getDatabases()
-    {
-        return $this->databases;
+        $this->filesystemConfig = new Config\Filesystem($name, $this->config['filesystem']);
+        $this->databaseConfig = new Config\Database($name, $this->config['databases']);
     }
 
     /**
@@ -148,15 +61,7 @@ class Backup
      */
     public function getTmpDir()
     {
-        return $this->globalConfig->getTmpDir();
-    }
-
-    /**
-     * @return array
-     */
-    public function getExcludedDirs()
-    {
-        return $this->excludedDirs;
+        return $this->backuper->getTmpDir();
     }
 
     /**
@@ -177,7 +82,7 @@ class Backup
     }
 
     /**
-     * @return ZipArchive
+     * @return Backup
      * @throws BackupException
      */
     public function backup()
@@ -204,7 +109,7 @@ class Backup
      */
     protected function backupFiles(ZipArchive $archive)
     {
-        foreach ($this->getFiles() as $file) {
+        foreach ($this->filesystemConfig->getFiles() as $file) {
             $fileName = basename($file);
             $archive->addFile($file, 'files/' . $fileName);
         }
@@ -215,9 +120,9 @@ class Backup
      */
     protected function backupDirectories(ZipArchive $archive)
     {
-        foreach ($this->getDirectories() as $directory) {
+        foreach ($this->filesystemConfig->getDirectories() as $directory) {
             $dirName = basename($directory);
-            $archive->addDirectory($directory, 'dirs' . DIRECTORY_SEPARATOR . $dirName, $this->getExcludedDirs());
+            $archive->addDirectory($directory, 'dirs' . DIRECTORY_SEPARATOR . $dirName, $this->filesystemConfig->getExcludedDirs());
         }
     }
 
@@ -227,7 +132,7 @@ class Backup
      */
     protected function backupDatabases(ZipArchive $archive)
     {
-        foreach ($this->getDatabases() as $name => $dbDumper) {
+        foreach ($this->databaseConfig->getDatabases() as $name => $dbDumper) {
             $fileName = $this->getTmpDir() . DIRECTORY_SEPARATOR . $name . '-dump.sql';
             $dbDumper->start($fileName);
             $archive->addFile($fileName, 'dbs/' . basename($fileName));
@@ -253,7 +158,7 @@ class Backup
      */
     public function getPreviousBackupsCount()
     {
-        return $this->previousBackupsCount;
+        return $this->config['previous-backups-count'];
     }
 
 }

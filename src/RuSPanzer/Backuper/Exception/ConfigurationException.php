@@ -11,8 +11,4 @@ namespace RuSPanzer\Backuper\Exception;
 
 class ConfigurationException extends \Exception
 {
-    public function __construct($message, $code = null)
-    {
-        return parent::__construct($message, $code);
-    }
 }

@@ -8,10 +8,10 @@
 
 namespace RuSPanzer\Backuper;
 
-use RuSPanzer\Backuper\Exception\ExtensionNotFoundException;
+use RuSPanzer\Backuper\Exception\ConfigurationException;
+use Symfony\Component\OptionsResolver\OptionsResolver;
 use Yandex\Disk\DiskClient;
 use Yandex\Disk\Exception\DiskRequestException;
-use Yandex\OAuth\OAuthClient;
 
 class Backuper
 {
@@ -20,64 +20,63 @@ class Backuper
 
     private $client;
 
-    private $yaDiskOauthClient;
-
     /** @var Backup[] */
-    private $completedBackups = [];
+    private $backups;
 
     public function __construct(array $config)
     {
-        $neededExtensions = [
-            'zip',
-            'curl',
-        ];
+        $optionsResolver = new OptionsResolver();
 
-        foreach ($neededExtensions as $extension) {
-            if (!extension_loaded($extension)) {
-                throw new ExtensionNotFoundException($extension);
-            }
+        $optionsResolver
+            ->setRequired([
+                'token',
+                'backups'
+            ])
+            ->setDefaults( [
+                'tmp-dir' => sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'RPYaBackuper',
+                'remote-backups-dir' => '/Backups/'
+            ])
+            ->setAllowedTypes('backups', 'array')
+            ->setAllowedTypes('remote-backups-dir', 'string')
+            ->setAllowedTypes('token', 'string')
+
+        ;
+
+        $this->config = $optionsResolver->resolve($config);
+
+        if (empty($this->config['backups'])) {
+            throw new ConfigurationException("Empty backups config");
         }
 
-        $this->config = new Config($config);
+        foreach ($this->config['backups'] as $name => $backupConfig) {
+            if (!is_array($backupConfig)) {
+                throw new ConfigurationException(sprintf('Backup config "%s" must be array', $name));
+            }
+            $this->backups[] = new Backup($name, $backupConfig, $this);
+        }
     }
 
     /**
      * @return DiskClient
      */
-    public function getDiskClient()
+    private function getDiskClient()
     {
         if (!$this->client) {
-            $this->client = new DiskClient($this->config->getYaDiskToken());
+            $this->client = new DiskClient($this->config['token']);
         }
 
         return $this->client;
     }
 
-    /**
-     * @return Backup[]
-     */
-    public function getBackups()
+    public function createBackups()
     {
-        return $this->config->getBackups();
-    }
+        foreach ($this->backups as $backup) {
+            $backup->backup();
 
-    /**
-     *
-     */
-    public function createBackup()
-    {
-        foreach ($this->getBackups() as $backup) {
-            $this->completedBackups[] = $backup->backup();
-        }
-
-        $client = $this->getDiskClient();
-
-        foreach ($this->completedBackups as $backup) {
             $fileName = $backup->getArchive()->getFileName();
+            $uploadDir = $this->prepareUploadDirectory($backup);
 
-            $uploadDir = $this->prepareUploadDirectory($client, $backup);
-
-            $client->uploadFile($uploadDir, [
+            $this->getDiskClient()->uploadFile($uploadDir, [
                 'path' => $fileName,
                 'size' => filesize($fileName),
                 'name' => basename($fileName),
@@ -87,20 +86,40 @@ class Backuper
     }
 
     /**
-     * @param DiskClient $client
-     * @param Backup     $backup
-     *
      * @return string
      */
-    private function prepareUploadDirectory(DiskClient $client, Backup $backup)
+    public function getTmpDir()
     {
-        $uploadDir = '/Backups/' . $backup->getName() . '/';
+        $tmpDir = $this->config['tmp-dir'];
+
+        if (!is_dir($tmpDir)) {
+            mkdir($tmpDir, 0755, true);
+        }
+
+        return $tmpDir;
+    }
+
+    /**
+     * @param Backup $backup
+     * @return string
+     * @throws DiskRequestException
+     * @internal param DiskClient $client
+     */
+    private function prepareUploadDirectory(Backup $backup)
+    {
+        $client = $this->getDiskClient();
+
+        $uploadDir = $this->config['remote-backups-dir'] . $backup->getName() . '/';
 
         try {
             $dirInfo = $client->directoryContents($uploadDir);
         } catch (DiskRequestException $exception) {
-            $client->createDirectory($uploadDir);
-            $dirInfo = $client->directoryContents($uploadDir);
+            if ($exception->getCode() == 404) {
+                $this->createDirectoryRecursive(trim($uploadDir, '/'));
+                $dirInfo = $client->directoryContents($uploadDir);
+            } else {
+                throw $exception;
+            }
         }
 
         $existedBackups = [];
@@ -126,41 +145,27 @@ class Backuper
     }
 
     /**
-     * @return OAuthClient
-     * @throws Exception\ConfigurationException
+     * @param $dir
+     * @throws DiskRequestException
      */
-    protected function getYaDiskOauthClient()
+    private function createDirectoryRecursive($dir)
     {
-        if (!$this->yaDiskOauthClient) {
-            $clientId =  $this->config->getYaDiskParam('client_id');
-            $secret = $this->config->getYaDiskParam('secret');
-            $this->yaDiskOauthClient = new OAuthClient($clientId, $secret);
+        $client = $this->getDiskClient();
+        $dirParts = explode('/', $dir);
+
+        $path = '/';
+        foreach ($dirParts as $part) {
+            $path .= $part . '/';
+
+            try {
+                $client->directoryContents($path);
+            } catch (DiskRequestException $exception) {
+                if ($exception->getCode() == 404) {
+                    $client->createDirectory($path);
+                } else {
+                    throw $exception;
+                }
+            }
         }
-
-        return $this->yaDiskOauthClient;
-    }
-
-    /**
-     * @return string
-     */
-    public function requestYaDiskAuthUrl()
-    {
-        $oauthClient = $this->getYaDiskOauthClient();
-
-        return $oauthClient->getAuthUrl();
-    }
-
-    /**
-     * @param $code
-     *
-     * @return OAuthClient
-     * @throws \Yandex\OAuth\Exception\AuthRequestException
-     * @throws \Yandex\OAuth\Exception\AuthResponseException
-     */
-    public function requestYaDiskToken($code)
-    {
-        $oauthClient = $this->getYaDiskOauthClient();
-
-        return $oauthClient->requestAccessToken($code)->getAccessToken();
     }
 }
