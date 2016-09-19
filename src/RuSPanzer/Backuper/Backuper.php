@@ -73,7 +73,7 @@ class Backuper
         foreach ($this->backups as $backup) {
             $backup->backup();
 
-            $fileName = $backup->getArchive()->getFileName();
+            $fileName = $backup->getFileName();
             $uploadDir = $this->prepareUploadDirectory($backup);
 
             $this->getDiskClient()->uploadFile($uploadDir, [
@@ -81,7 +81,7 @@ class Backuper
                 'size' => filesize($fileName),
                 'name' => basename($fileName),
             ]);
-            unlink($fileName);
+            $backup->removeTmpFiles();
         }
     }
 

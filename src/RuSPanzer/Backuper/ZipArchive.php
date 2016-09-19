@@ -65,7 +65,7 @@ class ZipArchive extends \ZipArchive
      */
     public function open($filename, $flags = null)
     {
-        $this->fileName = $filename;
+        $this->setFileName($filename);
         return parent::open($filename, $flags);
     }
 
@@ -75,5 +75,16 @@ class ZipArchive extends \ZipArchive
     public function getFileName()
     {
         return $this->fileName;
+    }
+
+    /**
+     * @param $fileName
+     * @return $this
+     */
+    protected function setFileName($fileName)
+    {
+        $this->fileName = $fileName;
+
+        return $this;
     }
 }

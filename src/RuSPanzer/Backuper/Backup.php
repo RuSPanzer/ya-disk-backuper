@@ -16,13 +16,13 @@ class Backup
 {
     private $name;
 
-    private $dbFiles = [];
-
-    private $archive;
+    private $tmpFiles = [];
 
     private $backuper;
 
     private $config;
+
+    private $filename;
 
     public function __construct($name, array $backupConfig, Backuper $backuper)
     {
@@ -34,12 +34,14 @@ class Backup
         $optionsResolver
             ->setDefaults([
                 'previous-backups-count' => 3,
+                'crypt-key' => false,
                 'filesystem' => [],
                 'databases' => [],
             ])
             ->setAllowedTypes('previous-backups-count', 'integer')
             ->setAllowedTypes('filesystem', 'array')
             ->setAllowedTypes('databases', 'array')
+            ->setAllowedTypes('crypt-key', ['bool', 'string'])
         ;
 
         $this->config = $optionsResolver->resolve($backupConfig);
@@ -95,11 +97,43 @@ class Backup
 
         $archive->close();
 
-        foreach ($this->dbFiles as $file) {
-            unlink($file);
+        $this->setFilename($archive->getFileName());
+
+        if (!empty($this->config['crypt-key'])) {
+            $this->encryptArchive();
         }
 
-        $this->archive = $archive;
+        return $this;
+    }
+
+    /**
+     * @return $this
+     */
+    public function encryptArchive()
+    {
+        $key = $this->config['crypt-key'];
+
+        $fileCrypt = new FileCrypt();
+
+        $source = $this->getFileName();
+        $destination = $this->getFileName() . '.encrypted';
+
+        $encryptResult = $fileCrypt->encryptFileChunks($source, $destination, $key);
+        if ($encryptResult) {
+            $this->setFilename($destination);
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return $this
+     */
+    public function removeTmpFiles()
+    {
+        foreach ($this->tmpFiles as $file) {
+            @unlink($file);
+        }
 
         return $this;
     }
@@ -133,24 +167,42 @@ class Backup
     protected function backupDatabases(ZipArchive $archive)
     {
         foreach ($this->databaseConfig->getDatabases() as $name => $dbDumper) {
-            $fileName = $this->getTmpDir() . DIRECTORY_SEPARATOR . $name . '-dump.sql';
+            $fileName = $this->getTmpDir() . DIRECTORY_SEPARATOR . $name . '-dump.sql.gz';
             $dbDumper->start($fileName);
             $archive->addFile($fileName, 'dbs/' . basename($fileName));
-            $this->dbFiles[] = $fileName;
+            $this->addTmpFile($fileName);
         }
     }
 
     /**
-     * @return ZipArchive
-     * @throws BackupException
+     * @param $file
+     * @return $this
      */
-    public function getArchive()
+    public function addTmpFile($file)
     {
-        if ($this->archive === null) {
-            throw new BackupException("Use Backup::backup() before getting archive file");
-        }
+        $this->tmpFiles[] = $file;
 
-        return $this->archive;
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getFileName()
+    {
+        return $this->filename;
+    }
+
+    /**
+     * @param string $filename
+     * @return Backup
+     */
+    public function setFilename($filename)
+    {
+        $this->filename = $filename;
+        $this->addTmpFile($filename);
+
+        return $this;
     }
 
     /**

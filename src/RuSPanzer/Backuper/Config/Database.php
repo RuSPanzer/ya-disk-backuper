@@ -56,7 +56,7 @@ class Database
         if (array_key_exists($name, $this->databases)) {
             throw new ConfigurationException(sprintf('Database "%s" in backup config "%s" already exists', $name, $this->backupName));
         }
-        $db = new Mysqldump("mysql:host={$config['host']};dbname={$config['dbName']}", $config['user'], $config['pass'], [
+        $db = new Mysqldump("mysql:host={$config['host']};dbname={$config['dbname']}", $config['user'], $config['pass'], [
             'compress' => Mysqldump::GZIP,
             'exclude-tables' => $config['exclude-tables']
         ]);
