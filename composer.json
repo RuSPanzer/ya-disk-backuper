@@ -1,5 +1,5 @@
 {
-    "name": "ruspanzer/backuper",
+    "name": "ruspanzer/ya-disk-backuper",
     "license": "MIT",
     "require": {
         "php": ">=5.4",
