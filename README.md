@@ -109,7 +109,7 @@ Filesystem config:
 
 Database config:
 
-*Backuper working only with MySQL databases*
+**Backuper working only with MySQL databases**
 
 | Param    |      Required      |  Description |
 |----------|:-------------:|------:|
