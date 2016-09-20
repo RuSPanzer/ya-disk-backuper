@@ -122,3 +122,7 @@ Database config:
 One backup may include one fylesystem config and one databases config with more databases.
 
 `config.json` may include  more backup configurations
+
+## Automatization
+
+Finally add backup command to your `crontab`
