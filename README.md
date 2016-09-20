@@ -109,6 +109,8 @@ Filesystem config:
 
 Database config:
 
+*Backuper working only with MySQL databases*
+
 | Param    |      Required      |  Description |
 |----------|:-------------:|------:|
 | `host` |  yes | MySQL database host |
