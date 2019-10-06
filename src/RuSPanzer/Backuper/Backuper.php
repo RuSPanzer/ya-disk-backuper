@@ -103,7 +103,6 @@ class Backuper
      * @param Backup $backup
      * @return string
      * @throws DiskRequestException
-     * @internal param DiskClient $client
      */
     private function prepareUploadDirectory(Backup $backup)
     {

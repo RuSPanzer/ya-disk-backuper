@@ -26,7 +26,7 @@ class ZipArchive extends \ZipArchive
         if ($localName) {
             $this->addEmptyDir($localName);
         }
-        $this->_addTree($dirName, $localName, $excludedDirs);
+        $this->addTree($dirName, $localName, $excludedDirs);
     }
 
     /**
@@ -34,7 +34,7 @@ class ZipArchive extends \ZipArchive
      * @param $localName
      * @param $excludedDirs
      */
-    protected function _addTree($dirName, $localName, $excludedDirs = [])
+    protected function addTree($dirName, $localName, $excludedDirs = [])
     {
         $dir = opendir($dirName);
         while ($filename = readdir($dir)) {
@@ -48,7 +48,7 @@ class ZipArchive extends \ZipArchive
                     continue;
                 }
                 $this->addEmptyDir($localPath);
-                $this->_addTree($path, $localPath, $excludedDirs);
+                $this->addTree($path, $localPath, $excludedDirs);
             }
             else if (is_file($path)) {
                 $this->addFile($path, $localPath);

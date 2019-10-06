@@ -11,11 +11,11 @@ use RuSPanzer\Backuper\Exception\BackupException;
 class FileCrypt
 {
 
-    var $_CHUNK_SIZE;
+    var $CHUNK_SIZE;
 
     function __construct()
     {
-        $this->_CHUNK_SIZE = 100 * 1024; // 100Kb
+        $this->CHUNK_SIZE = 100 * 1024; // 100Kb
 
         if (extension_loaded('mcrypt') !== true) {
             throw new BackupException('Extension mcrypt not found in your system');
@@ -90,7 +90,7 @@ class FileCrypt
         }
 
         while (!feof($inHandle)) {
-            $buffer = fread($inHandle, $this->_CHUNK_SIZE);
+            $buffer = fread($inHandle, $this->CHUNK_SIZE);
             $buffer = $this->$op($buffer, $key);
             fwrite($outHandle, $buffer);
         }
@@ -114,7 +114,7 @@ class FileCrypt
         }
 
         while (!feof($inHandle)) {
-            $buffer = fread($inHandle, $this->_CHUNK_SIZE);
+            $buffer = fread($inHandle, $this->CHUNK_SIZE);
             $buffer = $this->decrypt($buffer, $key);
             echo $buffer;
         }
